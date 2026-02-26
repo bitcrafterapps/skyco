@@ -431,3 +431,17 @@ npm start
 4. The app runs on `http://localhost:3000`.
 
 > To keep the app running as a background service on Windows, use [PM2](https://pm2.keymetrics.io/): `npm install -g pm2`, then `pm2 start npm --name skyco -- start` and `pm2 startup` to persist across reboots.
+
+---
+
+## Docs
+
+- [Docs Index](docs/README.md)
+- [Design Spec](docs/DESIGN_SPEC.md)
+- [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)
+- [Mobile Optimization](docs/MOBILE_OPTIMIZATION.md)
+- [Premium Dashboard Design Guide](docs/PREMIUM_DASHBOARD_DESIGN_GUIDE.md)
+- [Production Setup](docs/PRODUCTION_SETUP.md)
+- [Project Spec](docs/PROJECT_SPEC.md)
+- [Skeptic Review](docs/SKEPTIC_REVIEW.md)
+- [Skyco Feature Recommendations](docs/SKYCO_FEATURE_RECOMMENDATIONS.md)

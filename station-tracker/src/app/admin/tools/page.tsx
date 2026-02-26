@@ -30,7 +30,6 @@ type ToolsMetricsResponse = {
 export default function ToolsPage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<ToolCategory | "all">("all");
-  const [activeTier, setActiveTier] = useState<1 | 2 | 3>(1);
   const [metrics, setMetrics] = useState<ToolsMetricsResponse | null>(null);
 
   useEffect(() => {
@@ -61,15 +60,6 @@ export default function ToolsPage() {
     }).sort((a, b) => a.priority - b.priority);
   }, [activeCategory, search]);
 
-  const byTier = useMemo(
-    () => ({
-      tier1: filteredTools.filter((tool) => tool.tier === 1),
-      tier2: filteredTools.filter((tool) => tool.tier === 2),
-      tier3: filteredTools.filter((tool) => tool.tier === 3),
-    }),
-    [filteredTools]
-  );
-
   const kpis = metrics?.kpis;
   const successRate = metrics
     ? Math.round(
@@ -89,7 +79,7 @@ export default function ToolsPage() {
           <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-semibold text-slate-900">
-                Factory Floor Tools Roadmap
+                Factory Floor Tools
               </h2>
               <p className="text-sm text-slate-500 mt-1">
                 Prioritized tools for cutting, motorization, QC, and production planning.
@@ -106,29 +96,34 @@ export default function ToolsPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
+              aria-pressed={activeCategory === "all"}
               onClick={() => setActiveCategory("all")}
-              className={`tools-filter-pill rounded-lg px-3 py-1.5 text-xs font-semibold border ${
+              className={`tools-filter-pill rounded-lg px-3 py-1.5 text-xs font-semibold border transition-all duration-150 ${
                 activeCategory === "all"
-                  ? "bg-[#005B97] text-white border-[#005B97]"
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  ? "tools-filter-selected"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-[#005B97]/40"
               }`}
             >
               All
             </button>
-            {TOOL_CATEGORIES.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => setActiveCategory(category.id)}
-                className={`tools-filter-pill rounded-lg px-3 py-1.5 text-xs font-semibold border ${
-                  activeCategory === category.id
-                    ? "bg-[#005B97] text-white border-[#005B97]"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                {category.label}
-              </button>
-            ))}
+            {TOOL_CATEGORIES.map((category) => {
+              const isSelected = activeCategory === category.id;
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => setActiveCategory(category.id)}
+                  className={`tools-filter-pill rounded-lg px-3 py-1.5 text-xs font-semibold border transition-all duration-150 ${
+                    isSelected
+                      ? "tools-filter-selected"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-[#005B97]/40"
+                  }`}
+                >
+                  {category.label}
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -161,69 +156,15 @@ export default function ToolsPage() {
         </section>
 
         <section className="tools-surface-card rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-4 sm:px-5 py-3 border-b border-slate-100 flex items-center gap-2">
-            <TierTab
-              active={activeTier === 1}
-              onClick={() => setActiveTier(1)}
-              label="Tier 1"
-            />
-            <TierTab
-              active={activeTier === 2}
-              onClick={() => setActiveTier(2)}
-              label="Tier 2"
-            />
-            <TierTab
-              active={activeTier === 3}
-              onClick={() => setActiveTier(3)}
-              label="Tier 3"
-            />
-          </div>
           <div className="p-4 sm:p-5">
-            {activeTier === 1 ? (
-              <ToolCardsGrid
-                tools={byTier.tier1}
-                emptyText="No Tier 1 tools match your filters."
-              />
-            ) : activeTier === 2 ? (
-              <ToolCardsGrid
-                tools={byTier.tier2}
-                emptyText="No Tier 2 tools match your filters."
-              />
-            ) : (
-              <ToolCardsGrid
-                tools={byTier.tier3}
-                emptyText="No Tier 3 tools match your filters."
-              />
-            )}
+            <ToolCardsGrid
+              tools={filteredTools}
+              emptyText="No tools match your filters."
+            />
           </div>
         </section>
       </div>
     </AdminToolsShell>
-  );
-}
-
-function TierTab({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`tools-filter-pill tools-tier-tab rounded-lg px-3 py-1.5 text-xs font-semibold border transition-colors ${
-        active
-          ? "tools-tier-tab-active bg-[#005B97] text-white border-[#005B97]"
-          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

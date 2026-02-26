@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const SUB_NAV_ITEMS = [
+  { href: "/admin", label: "Admin", exact: true },
   { href: "/admin/stations", label: "Stations" },
   { href: "/admin/sheets", label: "Sheets" },
   { href: "/admin/preferences", label: "Preferences" },
@@ -19,7 +20,9 @@ export default function AdminSubNav() {
       <div className="admin-subnav-track w-full p-1.5 bg-slate-100/80 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
         <div className="max-w-7xl mx-auto flex items-center gap-1.5 sm:gap-2 overflow-x-auto hide-scrollbar">
           {SUB_NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive = item.exact
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
