@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="station-tracker/public/skyco-logo.svg" alt="Skyco Shading Systems" width="280" />
+  <img src="station-tracker/public/station-logo.jpg" alt="Skyco Station Tracker" width="400" />
 </p>
 
 # Skyco Station Tracker
