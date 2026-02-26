@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // better-sqlite3 is a native Node.js module and must not be bundled by webpack
+  output: "standalone",
   serverExternalPackages: ["better-sqlite3"],
 };
 

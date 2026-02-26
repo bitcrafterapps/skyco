@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-skyco}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-station_tracker}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skyco}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      args:
+        DATABASE_URL: postgresql://${POSTGRES_USER:-skyco}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-station_tracker}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-skyco}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-station_tracker}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  migrate:
+    build:
+      context: .
+      target: deps
+    command: >
+      sh -c "npx prisma migrate deploy &&
+             npx tsx scripts/seed-stations-only.ts"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-skyco}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-station_tracker}
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - setup
+
+volumes:
+  pgdata:
