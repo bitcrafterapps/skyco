@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="station-tracker/public/skyco-logo.svg" alt="Skyco Shading Systems" width="280" />
+</p>
+
 # Skyco Station Tracker
 
 Production order tracking system for **Skyco Shading Systems**. Replaces a Google Sheets workflow with a real-time, touchscreen-optimized web app designed for factory floor tablets.
