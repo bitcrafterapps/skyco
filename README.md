@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="station-tracker/public/station-logo.jpg" alt="Skyco Station Tracker" width="400" />
+  <img src="station-tracker/public/station-logo.jpg" alt="Skyco Station Tracker" width="100%" />
 </p>
 
 # Skyco Station Tracker
