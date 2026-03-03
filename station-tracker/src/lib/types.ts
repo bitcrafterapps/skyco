@@ -98,8 +98,12 @@ export interface StationOrder {
   holdReason: string;
   missing: boolean;
   missingDetails: string;
-  // Timestamp when done was toggled on, used for fade-out timing
+  // Timestamp when done was toggled on, used for countdown timing
   doneAt: number | null;
+  // Station ID this order was auto-advanced from (null if manually placed or never advanced)
+  autoAdvancedFrom: string | null;
+  // Timestamp when the order was auto-advanced (used to time out the "NEW" pill)
+  autoAdvancedAt: number | null;
 }
 
 // Station summary for the dashboard
@@ -133,3 +137,79 @@ export interface ApiResponse<T> {
 
 // Toggle field for status updates
 export type StatusField = "done" | "hold" | "missing";
+
+// ─── Shared Notes Logic ─────────────────────────────────────────
+
+export interface OrderNoteEntry {
+  id: string;
+  text: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export function formatNoteTimestamp(ts: string): string {
+  const date = new Date(ts);
+  return date.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+export function parseOrderNotes(
+  order: Pick<Order, "id" | "notes" | "createdAt" | "updatedAt">
+): OrderNoteEntry[] {
+  const raw = (order.notes ?? "").trim();
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      version?: number;
+      entries?: Array<{
+        id?: string;
+        text?: string;
+        createdAt?: string;
+        updatedAt?: string;
+      }>;
+    };
+
+    if (Array.isArray(parsed.entries)) {
+      return parsed.entries
+        .filter((entry) => typeof entry.text === "string" && entry.text.trim().length > 0)
+        .map((entry, index) => ({
+          id: entry.id && entry.id.trim() ? entry.id : `note-${index}`,
+          text: entry.text!.trim(),
+          createdAt:
+            entry.createdAt && !Number.isNaN(Date.parse(entry.createdAt))
+              ? entry.createdAt
+              : order.createdAt,
+          updatedAt:
+            entry.updatedAt && !Number.isNaN(Date.parse(entry.updatedAt))
+              ? entry.updatedAt
+              : undefined,
+        }));
+    }
+  } catch {
+    // Legacy plain-text notes fallback
+  }
+
+  return [
+    {
+      id: `legacy-${order.id}`,
+      text: raw,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    },
+  ];
+}
+
+export function serializeOrderNotes(entries: OrderNoteEntry[]): string {
+  return JSON.stringify({
+    version: 1,
+    entries,
+  });
+}

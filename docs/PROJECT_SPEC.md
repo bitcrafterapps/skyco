@@ -74,7 +74,7 @@ Each station shows a table with these columns:
 - **Framework**: Next.js 14+ (App Router)
 - **Styling**: Tailwind CSS
 - **Language**: TypeScript
-- **Database**: SQLite via better-sqlite3 (simple, file-based, no server needed)
+- **Database**: PostgreSQL via Prisma + `pg` (`DATABASE_URL` configured per environment)
 - **Real-time**: Server-Sent Events (SSE) or polling for live updates
 
 ## Pages/Routes

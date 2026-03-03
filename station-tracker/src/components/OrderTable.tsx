@@ -25,6 +25,8 @@ interface OrderTableProps {
   onReorder?: (orderIds: string[]) => void;
   loading: boolean;
   stationLabel?: string;
+  /** Configured advance delay in ms — passed to each row for the countdown */
+  advanceDelayMs?: number;
 }
 
 function ColumnHeaders() {
@@ -104,6 +106,7 @@ export default function OrderTable({
   onReorder,
   loading,
   stationLabel,
+  advanceDelayMs = 5 * 60_000,
 }: OrderTableProps) {
   const [knownIds, setKnownIds] = useState<Set<string>>(new Set());
   const prevOrdersRef = useRef<string[]>([]);
@@ -234,6 +237,7 @@ export default function OrderTable({
                 index={i}
                 onToggleStatus={onToggleStatus}
                 isNew={knownIds.has(order.id)}
+                advanceDelayMs={advanceDelayMs}
               />
             ))}
           </SortableContext>

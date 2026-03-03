@@ -30,7 +30,7 @@ export default function AppFooter() {
           </span>
         </div>
         <div className="text-slate-400 font-mono tabular-nums">
-          v1.00.06
+          v1.00.07
         </div>
       </div>
     </footer>

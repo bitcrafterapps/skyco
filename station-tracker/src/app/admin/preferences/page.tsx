@@ -21,22 +21,44 @@ export default function PreferencesPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Auto-advance setting
+  const [advanceDelayMinutes, setAdvanceDelayMinutes] = useState<string>("5");
+  const [savingAdvance, setSavingAdvance] = useState(false);
+  const [advanceMessage, setAdvanceMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   useEffect(() => {
     // Load preferences from localStorage
-    try {
-      const preferenceRaw = localStorage.getItem("default_view_preference");
-      if (preferenceRaw) {
-        const preference: DefaultViewPreference = JSON.parse(preferenceRaw);
-        setViewMode(preference.mode);
-        if (preference.stationId) {
-          setSelectedStation(preference.stationId);
+    const loadAll = async () => {
+      try {
+        const preferenceRaw = localStorage.getItem("default_view_preference");
+        if (preferenceRaw) {
+          const preference: DefaultViewPreference = JSON.parse(preferenceRaw);
+          setViewMode(preference.mode);
+          if (preference.stationId) {
+            setSelectedStation(preference.stationId);
+          }
         }
+      } catch (e) {
+        console.error("Failed to parse preference:", e);
       }
-    } catch (e) {
-      console.error("Failed to parse preference:", e);
-    } finally {
+
+      // Load auto-advance delay from server settings
+      try {
+        const res = await fetch("/api/settings?prefix=done_advance_delay_minutes", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          const val = json?.data?.done_advance_delay_minutes;
+          if (val !== undefined && val !== null) {
+            setAdvanceDelayMinutes(String(val));
+          }
+        }
+      } catch {
+        // ignore, keep default
+      }
+
       setLoading(false);
-    }
+    };
+    loadAll();
   }, []);
 
   const handleSave = () => {
@@ -60,6 +82,33 @@ export default function PreferencesPage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveAdvance = async () => {
+    setSavingAdvance(true);
+    setAdvanceMessage(null);
+    const minutes = parseFloat(advanceDelayMinutes);
+    if (isNaN(minutes) || minutes <= 0) {
+      setAdvanceMessage({ type: "error", text: "Please enter a valid positive number of minutes." });
+      setSavingAdvance(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "done_advance_delay_minutes", value: String(minutes) }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setAdvanceMessage({ type: "success", text: `Auto-advance delay set to ${minutes} minute${minutes === 1 ? "" : "s"}.` });
+    } catch (err) {
+      setAdvanceMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to save setting",
+      });
+    } finally {
+      setSavingAdvance(false);
     }
   };
 
@@ -293,6 +342,78 @@ export default function PreferencesPage() {
                 <span className="font-semibold text-slate-600">Note:</span> Changes are saved
                 locally to this browser and take effect immediately. Each device/browser can have
                 its own preference. Navigate to the home page (/) to test your preference.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Station Automation Section */}
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mt-6">
+          <div className="px-6 py-5 border-b border-slate-100">
+            <h2 className="text-lg font-semibold text-slate-900">Station Automation</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              When an order is marked <span className="font-semibold text-emerald-700">Done</span> at
+              a station, it will automatically advance to the next station after
+              the configured delay. This setting is global and applies to all
+              station displays and the admin order edit screen.
+            </p>
+          </div>
+
+          <div className="px-6 py-5 space-y-5">
+            <div className="flex items-end gap-4">
+              <div className="flex-1 max-w-xs">
+                <label
+                  htmlFor="advance-delay"
+                  className="block text-sm font-medium text-slate-700 mb-1.5"
+                >
+                  Auto-advance delay (minutes)
+                </label>
+                <input
+                  id="advance-delay"
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={advanceDelayMinutes}
+                  onChange={(e) => setAdvanceDelayMinutes(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#005B97] focus:ring-2 focus:ring-[#005B97]/20 focus:outline-none transition-colors min-h-[44px]"
+                />
+                <p className="text-xs text-slate-500 mt-1.5">
+                  Default: 5 minutes. Set to 0.5 for 30 seconds (useful for testing).
+                </p>
+              </div>
+              <button
+                onClick={handleSaveAdvance}
+                disabled={savingAdvance}
+                className="rounded-xl px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 ease-out active:scale-[0.97] min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#005B97]/50 shrink-0"
+                style={{
+                  background: "linear-gradient(180deg, #0069AD 0%, #005B97 50%, #004A7C 100%)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15), 0 2px 4px rgba(0,91,151,0.25), 0 0 12px rgba(0,91,151,0.1)",
+                }}
+              >
+                {savingAdvance ? "Saving..." : "Save"}
+              </button>
+            </div>
+
+            {advanceMessage && (
+              <div
+                className={`rounded-lg px-4 py-3 text-sm ${
+                  advanceMessage.type === "success"
+                    ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
+                    : "bg-red-50 border border-red-200 text-red-700"
+                }`}
+              >
+                {advanceMessage.text}
+              </div>
+            )}
+
+            <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                <span className="font-semibold text-slate-600">How it works:</span> When a
+                station operator marks an order as Done, a timer starts. After the
+                configured delay, the order is automatically moved to the next station
+                in the production sequence. If Done is deactivated before the timer
+                fires, the advance is cancelled. This setting is saved to the database
+                and applies universally.
               </p>
             </div>
           </div>

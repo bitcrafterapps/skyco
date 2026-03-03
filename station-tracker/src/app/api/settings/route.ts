@@ -9,6 +9,7 @@ const ALLOWED_UPDATE_KEYS = [
   "google_sheet_id",
   "google_sheet_name",
   "default_view_preference",
+  "done_advance_delay_minutes",
 ];
 
 const MASKED_KEYS = ["google_client_secret", "google_refresh_token"];

@@ -13,6 +13,8 @@ interface UseStationOrdersReturn {
   toggleStatus: (orderId: string, field: StatusField) => void;
   reorderOrders: (orderIds: string[]) => void;
   lastRefreshed: number | null;
+  /** Configured auto-advance delay in ms (default 5 min). Drives the countdown. */
+  advanceDelayMs: number;
 }
 
 const POLL_INTERVAL = 5_000;
@@ -25,8 +27,21 @@ export function useStationOrders(stationId: string): UseStationOrdersReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<number | null>(null);
+  const [advanceDelayMs, setAdvanceDelayMs] = useState(5 * 60_000);
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
+
+  // Fetch the configured auto-advance delay once on mount
+  useEffect(() => {
+    fetch("/api/settings?prefix=done_advance_delay_minutes", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const raw = json?.data?.done_advance_delay_minutes;
+        const mins = raw ? parseFloat(raw) : NaN;
+        if (!isNaN(mins) && mins > 0) setAdvanceDelayMs(mins * 60_000);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -81,6 +96,7 @@ export function useStationOrders(stationId: string): UseStationOrdersReturn {
       if (mountedRef.current) setLoading(false);
     }
   }, [stationId]);
+
 
   // Initial fetch and polling
   useEffect(() => {
@@ -195,5 +211,6 @@ export function useStationOrders(stationId: string): UseStationOrdersReturn {
     toggleStatus,
     reorderOrders,
     lastRefreshed,
+    advanceDelayMs,
   };
 }

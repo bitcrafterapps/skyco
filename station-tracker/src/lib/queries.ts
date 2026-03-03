@@ -86,6 +86,8 @@ function mapStationOrder(order: any, stationStatus?: any): StationOrder {
     missing: status.missing,
     missingDetails: status.missingDetails,
     doneAt: status.doneAt ? new Date(status.doneAt).getTime() : null,
+    autoAdvancedFrom: order.autoAdvancedFrom ?? null,
+    autoAdvancedAt: order.autoAdvancedAt ? new Date(order.autoAdvancedAt).getTime() : null,
   };
 }
 
@@ -334,7 +336,13 @@ export async function updateOrder(
   if (data.orderNumber !== undefined) updateData.orderNumber = data.orderNumber;
   if (data.customerName !== undefined) updateData.customerName = data.customerName;
   if (data.department !== undefined) updateData.department = data.department;
-  if (data.currentStation !== undefined) updateData.currentStation = data.currentStation;
+  if (data.currentStation !== undefined) {
+    updateData.currentStation = data.currentStation;
+    // Clear the auto-advance marker when an admin manually changes the station
+    // so the "arrived from" pill doesn't persist after a manual move.
+    updateData.autoAdvancedFrom = null;
+    updateData.autoAdvancedAt = null;
+  }
   if (data.status !== undefined) updateData.status = data.status;
   if (data.isRush !== undefined) updateData.isRush = data.isRush;
   if (data.shipDate !== undefined) updateData.shipDate = data.shipDate;
@@ -481,20 +489,108 @@ export async function getStationOrders(station: string): Promise<StationOrder[]>
       ]
   });
 
-  // Filter for the "fade out" logic
-  const cutoff = new Date(Date.now() - 30 * 1000).toISOString();
+  // Return all orders at this station — done orders stay visible until
+  // autoAdvanceDoneOrders moves them to the next station.
+  return orders.map(o => mapStationOrder(o, o.stationStatuses[0]));
+}
 
-  const filtered = orders.filter(o => {
-      const status = o.stationStatuses[0]; // Should be exactly one due to filter
-      if (!status) return true;
+/**
+ * autoAdvanceDoneOrders
+ *
+ * Server-side auto-advance check. Called on every station GET request.
+ * Finds orders at `stationId` that have been marked Done for longer than
+ * the configured `done_advance_delay_minutes` setting (default 5 min) and
+ * moves them to the next station in DB sort-order sequence.
+ *
+ * No-ops gracefully if:
+ *   - The station is the last in sequence
+ *   - No done orders have exceeded the delay
+ *   - The setting is missing or invalid (falls back to 5 min default)
+ */
+export async function autoAdvanceDoneOrders(stationId: string): Promise<void> {
+  // Read the delay setting (in minutes)
+  const delayStr = await getSetting("done_advance_delay_minutes");
+  const delayMinutes = delayStr ? parseFloat(delayStr) : 5;
+  if (isNaN(delayMinutes) || delayMinutes <= 0) return;
 
-      if (!status.done) return true;
-      // If done, check time
-      if (!status.doneAt) return true; // Should have date if done, but safe fallback
-      return status.doneAt > cutoff;
+  const delayMs = delayMinutes * 60_000;
+  const cutoff = new Date(Date.now() - delayMs).toISOString();
+
+  // Find OrderStationStatus rows at this station where:
+  //   done=true AND doneAt is set AND doneAt <= cutoff
+  //   AND the order is still at this station (hasn't already been moved)
+  const overdueStatuses = await prisma.orderStationStatus.findMany({
+    where: {
+      station: stationId,
+      done: true,
+      doneAt: { not: null, lte: cutoff },
+      order: { currentStation: stationId },
+    },
+    select: { orderId: true },
   });
 
-  return filtered.map(o => mapStationOrder(o, o.stationStatuses[0]));
+  if (overdueStatuses.length === 0) return;
+
+  // Determine the next station by DB sortOrder
+  const stations = await getAllStations(); // active stations, sorted ascending
+  const currentIdx = stations.findIndex((s) => s.id === stationId);
+  if (currentIdx === -1 || currentIdx === stations.length - 1) return; // not found or last station
+  const nextStationId = stations[currentIdx + 1].id;
+
+  const orderIds = overdueStatuses.map((s) => s.orderId);
+
+  // Fetch old-station hold/missing so we can carry them to the new station
+  const oldStatuses = await prisma.orderStationStatus.findMany({
+    where: { orderId: { in: orderIds }, station: stationId },
+    select: { orderId: true, hold: true, holdReason: true, missing: true, missingDetails: true },
+  });
+
+  // 1. Move orders to next station AND record which station they came from
+  await prisma.$transaction(
+    orderIds.map((id) =>
+      prisma.order.update({
+        where: { id },
+        data: {
+          currentStation: nextStationId,
+          autoAdvancedFrom: stationId,
+          autoAdvancedAt: new Date(),
+        },
+      })
+    )
+  );
+
+  // 2. Reset done/doneAt at the OLD station (hold/missing stay intact there)
+  await prisma.orderStationStatus.updateMany({
+    where: { orderId: { in: orderIds }, station: stationId },
+    data: { done: false, doneAt: null },
+  });
+
+  // 3. Carry hold/missing across to the NEW station so they don't disappear
+  for (const os of oldStatuses) {
+    if (!os.hold && !os.missing) continue; // nothing to carry
+    await prisma.orderStationStatus.upsert({
+      where: { orderId_station: { orderId: os.orderId, station: nextStationId } },
+      create: {
+        orderId: os.orderId,
+        station: nextStationId,
+        hold: os.hold,
+        holdReason: os.holdReason,
+        missing: os.missing,
+        missingDetails: os.missingDetails,
+        done: false,
+      },
+      update: {
+        hold: os.hold,
+        holdReason: os.holdReason,
+        missing: os.missing,
+        missingDetails: os.missingDetails,
+      },
+    });
+  }
+
+  console.log(
+    `[autoAdvanceDoneOrders] Advanced ${orderIds.length} order(s) from "${stationId}" → "${nextStationId}"`
+  );
 }
 
 export async function reorderStationOrders(orderIds: string[]): Promise<void> {

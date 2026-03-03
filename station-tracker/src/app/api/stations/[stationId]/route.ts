@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStationById, getStationOrders } from "@/lib/queries";
+import { getStationById, getStationOrders, autoAdvanceDoneOrders } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
  * Get all orders for a specific station.
  * Sort by: rush orders first, then by ship_date ascending, then by order_number.
  * Filters out orders where done_at is more than 30 seconds ago (auto-dismiss).
+ * Also auto-advances any done orders that have exceeded the configured delay.
  */
 export async function GET(
   _request: NextRequest,
@@ -22,6 +23,10 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Server-side auto-advance: move any done orders past their delay to the next station.
+    // This runs on every poll (every 5s) making it fully reliable regardless of browser state.
+    await autoAdvanceDoneOrders(station.id);
 
     const orders = await getStationOrders(station.id);
 
@@ -42,3 +47,4 @@ export async function GET(
     );
   }
 }
+

@@ -23,23 +23,18 @@ export default function StationPage({ params }: StationPageProps) {
     toggleStatus,
     reorderOrders,
     lastRefreshed,
+    advanceDelayMs,
   } = useStationOrders(rawStationId);
 
-  // Filter out done orders that have finished their fade-out animation
-  const DONE_DISMISS_DELAY = 31_000; // 30s delay + 1s animation
-  const visibleOrders = orders.filter((order) => {
-    if (!order.done || !order.doneAt) return true;
-    return Date.now() - order.doneAt < DONE_DISMISS_DELAY;
-  });
 
-  // Compute hold and missing counts from visible orders
+  // Compute hold and missing counts
   const holdCount = useMemo(
-    () => visibleOrders.filter((o) => o.hold).length,
-    [visibleOrders]
+    () => orders.filter((o) => o.hold).length,
+    [orders]
   );
   const missingCount = useMemo(
-    () => visibleOrders.filter((o) => o.missing).length,
-    [visibleOrders]
+    () => orders.filter((o) => o.missing).length,
+    [orders]
   );
 
   // Connection status derived from error state
@@ -68,7 +63,7 @@ export default function StationPage({ params }: StationPageProps) {
           stationNumber={
             typeof stationSortOrder === "number" ? stationSortOrder + 1 : undefined
           }
-          orderCount={visibleOrders.length}
+          orderCount={orders.length}
           holdCount={holdCount}
           missingCount={missingCount}
         />
@@ -83,10 +78,11 @@ export default function StationPage({ params }: StationPageProps) {
           )}
 
           <OrderTable
-            orders={visibleOrders}
+            orders={orders}
             onToggleStatus={toggleStatus}
             onReorder={reorderOrders}
             loading={loading}
+            advanceDelayMs={advanceDelayMs}
           />
         </main>
 

@@ -35,6 +35,10 @@ model Order {
   target         String   @default("")
   sortOrder      Int      @default(0) @map("sort_order")
   deletedAt      String?  @map("deleted_at")
+  // Set by autoAdvanceDoneOrders when an order is moved by the timer;
+  // cleared when an admin manually changes the station.
+  autoAdvancedFrom String? @map("auto_advanced_from")
+  autoAdvancedAt   DateTime? @map("auto_advanced_at")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 

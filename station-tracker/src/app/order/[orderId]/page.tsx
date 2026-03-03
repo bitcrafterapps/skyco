@@ -20,8 +20,14 @@ import {
   ChevronRight,
   StickyNote,
 } from "lucide-react";
-import type { Order, StationId } from "@/lib/types";
-import { STATIONS, STATION_LABELS } from "@/lib/types";
+import type { Order, StationId, OrderNoteEntry } from "@/lib/types";
+import {
+  STATIONS,
+  STATION_LABELS,
+  parseOrderNotes,
+  serializeOrderNotes,
+  formatNoteTimestamp,
+} from "@/lib/types";
 import AppFooter from "@/components/AppFooter";
 import OrderSearch from "@/components/OrderSearch";
 import SmartLogoLink from "@/components/SmartLogoLink";
@@ -31,12 +37,6 @@ interface OrderPageProps {
   params: Promise<{ orderId: string }>;
 }
 
-interface OrderNoteEntry {
-  id: string;
-  text: string;
-  createdAt: string;
-  updatedAt?: string;
-}
 
 interface StationTimelineItem {
   id: string;
@@ -1010,66 +1010,4 @@ function formatTimestamp(ts: string): string {
   });
 }
 
-function formatNoteTimestamp(ts: string): string {
-  const date = new Date(ts);
-  return date.toLocaleString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
 
-function parseOrderNotes(order: Order): OrderNoteEntry[] {
-  const raw = (order.notes ?? "").trim();
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw) as {
-      version?: number;
-      entries?: Array<{
-        id?: string;
-        text?: string;
-        createdAt?: string;
-        updatedAt?: string;
-      }>;
-    };
-
-    if (Array.isArray(parsed.entries)) {
-      return parsed.entries
-        .filter((entry) => typeof entry.text === "string" && entry.text.trim().length > 0)
-        .map((entry, index) => ({
-          id: entry.id && entry.id.trim() ? entry.id : `note-${index}`,
-          text: entry.text!.trim(),
-          createdAt: entry.createdAt && !Number.isNaN(Date.parse(entry.createdAt))
-            ? entry.createdAt
-            : order.createdAt,
-          updatedAt:
-            entry.updatedAt && !Number.isNaN(Date.parse(entry.updatedAt))
-              ? entry.updatedAt
-              : undefined,
-        }));
-    }
-  } catch {
-    // Legacy plain-text notes fallback
-  }
-
-  return [
-    {
-      id: `legacy-${order.id}`,
-      text: raw,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-    },
-  ];
-}
-
-function serializeOrderNotes(entries: OrderNoteEntry[]): string {
-  return JSON.stringify({
-    version: 1,
-    entries,
-  });
-}
